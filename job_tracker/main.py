@@ -99,6 +99,12 @@ def scan_emails(gmail: GmailClient, extractor: AIExtractor, excel: ExcelManager,
             if not result or not result.get('is_job_related'):
                 continue
 
+            # Only track jobs where we have clear evidence the user actually
+            # applied (or received an interview/offer/rejection).  Skip job
+            # alert / suggestion / recommendation emails.
+            if not result.get('is_application_confirmed'):
+                continue
+
             company     = result.get('company')    or 'Unknown Company'
             job_title   = result.get('job_title')  or 'Unknown Role'
             location    = result.get('location')   or 'Unknown'

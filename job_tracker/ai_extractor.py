@@ -54,6 +54,7 @@ Body (first 3000 chars):
 Return ONLY a valid JSON object (no markdown, no prose) with these exact keys:
 {{
   "is_job_related": <true|false>,
+  "is_application_confirmed": <true|false>,
   "company": <string or null>,
   "job_title": <string or null>,
   "location": <string or null>,
@@ -64,6 +65,23 @@ Return ONLY a valid JSON object (no markdown, no prose) with these exact keys:
 
 Rules:
 - is_job_related must be true only if the email is clearly about a job application.
+- is_application_confirmed must be true ONLY if the email provides clear evidence that
+  the user has actually applied to, been interviewed for, received an offer from, or
+  been rejected from a specific job. Examples of confirmed applications:
+    * "You applied to X at Y"
+    * "Your application was sent"
+    * "Application submitted"
+    * "Thank you for applying"
+    * "We received your application"
+    * Interview invitations for a role the user applied to
+    * Offer letters or rejection notices for a specific application
+  is_application_confirmed must be FALSE for:
+    * Job alert or suggestion emails ("Jobs you might like", "New jobs for you", etc.)
+    * Job recommendation emails from LinkedIn, Indeed, or any job board
+    * Emails that merely list open positions without confirming an application
+    * Newsletter-style emails with job listings
+    * "Jobs similar to X" or "Based on your profile" recommendation emails
+  When in doubt, set is_application_confirmed to false.
 - company: look everywhere — subject line, email body, sender domain, and "From" name.
   For job-board emails (Indeed, LinkedIn, Glassdoor, ZipRecruiter, etc.) the hiring
   company is usually mentioned in the subject or body, NOT the job board itself.
