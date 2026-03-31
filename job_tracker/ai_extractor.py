@@ -86,6 +86,14 @@ Rules:
   For job-board emails (Indeed, LinkedIn, Glassdoor, ZipRecruiter, etc.) the hiring
   company is usually mentioned in the subject or body, NOT the job board itself.
   Use the hiring company name, not the job board name.
+  For Indeed emails specifically, look for patterns like:
+    * "Your application was sent to [Company]"
+    * "applied to [Job Title] at [Company]"
+    * "Your application to [Company]"
+    * "[Company] has received your application"
+    * Company name in subject line after "at" (e.g. "Software Engineer at Acme Corp")
+  NEVER return "Indeed" or "Unknown" as the company if the actual company name is
+  mentioned anywhere in the subject or body.
 - job_title: extract the exact role title from the subject or body.
 - location: look for city/state, country, or "Remote" in the body. Use null if absent.
 - status "Applied" = confirmation of submission; "Interview Scheduled" = invitation

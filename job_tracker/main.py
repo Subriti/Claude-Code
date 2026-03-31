@@ -11,6 +11,7 @@ Usage:
 """
 
 import os
+import re
 import sys
 import time
 from datetime import datetime
@@ -48,6 +49,30 @@ SEARCH_QUERIES = [
     # Status / next-steps updates
     '(subject:("application update") OR subject:("application status") OR subject:("update on your application") OR subject:("next steps")) (application OR interview OR position OR role) -from:me {DATE}',
 ]
+
+
+MIN_DATE_FILTER = 'after:2025/01/01'
+
+# Patterns that indicate university/academic applications (not job applications)
+_ACADEMIC_RE = re.compile(
+    r'\b(university\s+admission|college\s+admission|'
+    r'enrollment\s+application|scholarship\s+application|'
+    r'academic\s+program|graduate\s+school\s+application|'
+    r'postgraduate\s+application|PhD\s+application|'
+    r'Masters\s+application|undergraduate\s+admission)\b',
+    re.IGNORECASE,
+)
+
+
+def _is_academic_email(subject, body):
+    """Return True if the email is about a university/academic application."""
+    text = (subject or '') + ' ' + (body[:3000] if body else '')
+    return bool(_ACADEMIC_RE.search(text))
+
+
+def _dedup_key(company, job_title):
+    """Normalised deduplication key: (company, job_title) lowercase, stripped."""
+    return ((company or '').strip().lower(), (job_title or '').strip().lower())
 
 
 def _now():
@@ -92,6 +117,11 @@ def scan_emails(gmail: GmailClient, extractor: AIExtractor, excel: ExcelManager,
             date    = gmail.get_date(message)
             body    = gmail.get_body(message)
 
+            # Bug 4: Skip university/academic application emails
+            if _is_academic_email(subject, body):
+                print(f'  - Skipped (academic): {subject[:70]}')
+                continue
+
             print(f'  ? Analyzing: {subject[:70]}')
             time.sleep(0.5)  # avoid burst-triggering overload
 
@@ -113,15 +143,36 @@ def scan_emails(gmail: GmailClient, extractor: AIExtractor, excel: ExcelManager,
 
             existing_jobs = excel.get_all_jobs()
 
-            # If this email updates an existing application, find and update it
-            if result.get('is_status_update') and existing_jobs:
+            # Bug 1: Dedup by (company, job_title) — case-insensitive, stripped.
+            # Check for an existing row with the same company+title regardless
+            # of whether the AI flagged this as a status update.
+            key = _dedup_key(company, job_title)
+            match_idx = None
+            for idx, ej in enumerate(existing_jobs):
+                if _dedup_key(ej['company'], ej['job_title']) == key:
+                    match_idx = idx
+                    break
+
+            # Also try AI-based matching if the simple key didn't hit
+            if match_idx is None and existing_jobs:
                 match_idx = extractor.find_matching_job(result, existing_jobs)
-                if match_idx is not None:
-                    excel.update_status(match_idx, new_status=status, thread_id=thread_id)
-                    old = existing_jobs[match_idx]
-                    print(f'  ↑ Updated : {old["company"]} — {old["job_title"]} → {status}')
-                    update_count += 1
-                    continue
+
+            if match_idx is not None:
+                old = existing_jobs[match_idx]
+                # Prefer non-"Unknown" values for location and description
+                better_location = location if (old.get('location') or 'Unknown') == 'Unknown' and location != 'Unknown' else None
+                better_description = description if not old.get('description') and description else None
+                excel.update_status(
+                    match_idx,
+                    new_status=status,
+                    thread_id=thread_id,
+                    updated_date=date,
+                    location=better_location,
+                    description=better_description,
+                )
+                print(f'  ↑ Updated : {old["company"]} — {old["job_title"]} → {status}')
+                update_count += 1
+                continue
 
             # Otherwise add a new row
             excel.add_job(
@@ -155,8 +206,8 @@ def main():
     gmail, extractor, excel = build_clients()
 
     if full_history:
-        # One-time deep scan over all history — intended for initial import
-        scan_emails(gmail, extractor, excel, date_filter='')
+        # One-time deep scan — limited to 2025+ to avoid wasting tokens
+        scan_emails(gmail, extractor, excel, date_filter=MIN_DATE_FILTER)
         return
 
     # All other modes (--once or loop) only scan the current month

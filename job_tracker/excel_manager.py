@@ -111,13 +111,19 @@ class ExcelManager:
         self.wb.save(self.filepath)
         print(f'  + Added   : {company} — {job_title} [{status}]')
 
-    def update_status(self, row_index, new_status, thread_id=''):
+    def update_status(self, row_index, new_status, thread_id='',
+                       updated_date=None, location=None, description=None):
         """row_index is 0-based (position in get_all_jobs() list)."""
         actual_row = row_index + 2
-        today = datetime.now().strftime('%Y-%m-%d')
+        update_date = updated_date or datetime.now().strftime('%Y-%m-%d')
 
         self.ws.cell(row=actual_row, column=COL['Status'], value=new_status)
-        self.ws.cell(row=actual_row, column=COL['Last Updated'], value=today)
+        self.ws.cell(row=actual_row, column=COL['Last Updated'], value=update_date)
+
+        if location:
+            self.ws.cell(row=actual_row, column=COL['Location'], value=location)
+        if description:
+            self.ws.cell(row=actual_row, column=COL['Description'], value=description)
 
         if thread_id:
             tid_cell = self.ws.cell(row=actual_row, column=COL['Thread IDs'])
