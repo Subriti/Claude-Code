@@ -28,4 +28,11 @@ Everything lives in one HTML file with three co-located sections:
 
 ## Git workflow
 
-Commit all changes with clean messages and push to `origin/main` (GitHub: `Subriti/tic-tac-toe`) after each meaningful change.
+After every meaningful unit of work — a feature added, a bug fixed, a refactor completed — commit and push immediately to `origin/main` (GitHub: `Subriti/tic-tac-toe`). Do not batch up multiple changes into one commit; small, focused commits make it easy to revert to any prior state.
+
+Commit message format:
+- Subject line: imperative mood, ≤72 chars (e.g. `Add AI opponent with minimax`)
+- Leave a blank line, then a short body if the change needs context
+- Always append: `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
+
+Push after every commit so GitHub always reflects the latest working state.
