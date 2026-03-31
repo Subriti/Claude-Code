@@ -13,11 +13,13 @@ class AIExtractor:
         self.model = 'claude-sonnet-4-6'
 
     def _create_with_retry(self, **kwargs):
-        """Call messages.create with long-backoff retries for OverloadedError."""
+        """Call messages.create with long-backoff retries for 529 overload errors."""
         for attempt, delay in enumerate(_OVERLOAD_DELAYS, start=1):
             try:
                 return self.client.messages.create(**kwargs)
-            except anthropic.OverloadedError:
+            except anthropic.APIStatusError as e:
+                if e.status_code != 529:
+                    raise
                 print(f'  ! API overloaded (attempt {attempt}/{len(_OVERLOAD_DELAYS)}), '
                       f'retrying in {delay}s...')
                 time.sleep(delay)
@@ -62,6 +64,12 @@ Return ONLY a valid JSON object (no markdown, no prose) with these exact keys:
 
 Rules:
 - is_job_related must be true only if the email is clearly about a job application.
+- company: look everywhere — subject line, email body, sender domain, and "From" name.
+  For job-board emails (Indeed, LinkedIn, Glassdoor, ZipRecruiter, etc.) the hiring
+  company is usually mentioned in the subject or body, NOT the job board itself.
+  Use the hiring company name, not the job board name.
+- job_title: extract the exact role title from the subject or body.
+- location: look for city/state, country, or "Remote" in the body. Use null if absent.
 - status "Applied" = confirmation of submission; "Interview Scheduled" = invitation
   or confirmation of an interview; "Offer Received" = job offer extended;
   "Rejected" = rejection/not moving forward; "Withdrawn" = candidate withdrew.
